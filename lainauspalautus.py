@@ -1,9 +1,15 @@
 import sys
 
 from PySide6 import QtWidgets
+from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtUiTools import QUiLoader
 from lainauspalautus_ui import Ui_MainWindow
+
+def load_ui(ui_file, baseinstance=None):
+    loader = QUiLoader()
+    widget = loader.load(ui_file, baseinstance)
+    return widget
 
 
 class MainUI(Ui_MainWindow):
