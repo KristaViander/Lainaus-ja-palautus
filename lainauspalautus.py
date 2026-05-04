@@ -85,8 +85,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.setupUi(self)
 
-       
+        try:
+            with open("settings.json") as settingsFile:
 
+                jsonData = settingsFile.read()
+                self.currentSettings = json.loads(jsonData)
+            
+        except Exception as error:
+            title = 'Tietokanta-asetusten luku ei onnistunut'
+            text = 'Tietokanta-asetuksien avaaminen ja salasanan purku ei onnistunut'
+            detailedText = str(error)
+            self.openWarning(title, text, detailedText)
 
         self.setInitialElements()
 
@@ -153,6 +162,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.lainausnappi.show()
         self.ui.palautusnappi.show()
 
+        self.ui.vahvistanappilainauksessa.setEnabled(True)
+        self.ui.vahvistanappipalautuksessa.setEnabled(True)
+
+        
         #Tarvitsen tietokannan tiedot
 
 
