@@ -6,7 +6,7 @@ from PySide6.QtUiTools import QUiLoader
 from lainauspalautus_ui import Ui_MainWindow
 
 
-class MainUI(QMainWindow):
+class MainUI(Ui_MainWindow):
     def __init__(self):
         super(MainUI, self).__init__()
         load_ui("lainauspalautus.ui", self)
