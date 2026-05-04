@@ -165,8 +165,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.vahvistanappilainauksessa.setEnabled(True)
         self.ui.vahvistanappipalautuksessa.setEnabled(True)
 
-        
+        #dbSettings = self.currentSettings
+        #plainTextPassword = self.plainTextPassword
+
         #Tarvitsen tietokannan tiedot
+
 
 
 
