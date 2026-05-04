@@ -3,8 +3,6 @@ import os
 import json
 
 from PySide6 import QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow
-from PyQt6.uic import load_ui
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtUiTools import QUiLoader
 from lainauspalautus_ui import Ui_MainWindow
