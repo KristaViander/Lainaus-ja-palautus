@@ -1,10 +1,32 @@
 import sys
+import json
 
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtUiTools import QUiLoader
 from lainauspalautus_ui import Ui_MainWindow
+import psycopg
+from psycopg.rows import dict_row
+
+
+def load_settings():
+    """Load database settings from settings.json"""
+    with open("settings.json") as f:
+        return json.load(f)
+
+def get_db_connection():
+    """Get PostgreSQL connection"""
+    settings = load_settings()
+    db_config = settings["database"]
+    return psycopg.connect(
+        host=db_config["host"],
+        port=db_config["port"],
+        dbname=db_config["database"],
+        user=db_config["user"],
+        password=db_config["password"],
+        row_factory=dict_row
+    )
 
 def load_ui(ui_file, baseinstance=None):
     loader = QUiLoader()
