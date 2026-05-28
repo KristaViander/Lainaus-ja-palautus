@@ -136,7 +136,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     #lainauksen vienti
     @Slot()
     def lainaa(self):
-       
+        self.ui.stackedWidget.setCurrentWidget(self.ui.page_2)
         self.ui.otsikkolainaus.show()
         self.ui.lainausvalikoimalista.show()
         self.ui.lainauksenvalikoima.show()
