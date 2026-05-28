@@ -4,7 +4,6 @@ import json
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import QThreadPool, Slot
-from PySide6.QtUiTools import QUiLoader
 from lainauspalautus_ui import Ui_MainWindow
 import psycopg
 from psycopg.rows import dict_row
@@ -27,51 +26,6 @@ def get_db_connection():
         password=db_config["password"],
         row_factory=dict_row
     )
-
-def load_ui(ui_file, baseinstance=None):
-    loader = QUiLoader()
-    widget = loader.load(ui_file, baseinstance)
-    return widget
-
-
-class MainUI(Ui_MainWindow):
-    def __init__(self):
-        super(MainUI, self).__init__()
-        load_ui("lainauspalautus.ui", self)
-        self.one_btn.clicked.connect(self.one_btn_action)
-
-    def one_btn_action(self):
-        self.label.setText("One button was clicked!")
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ui = MainUI()
-    ui.show()
-    app.exec_()
-
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super(MainWindow, self).__init__()
-        self.setGeometry(200, 200, 300, 300)
-        self.setWindowTitle("Lainaus ja palautus")
-        self.initUI()
-
-    def initUI(self):
-        self.label = QtWidgets.QLabel(self)
-        self.label.setText(" ")
-        self.label.move(50, 50)
-
-        self.b1 = QtWidgets.QPushButton(self)
-        self.b1.setText("Click")
-        self.b1.clicked.connect(self.clicked)
-
-    def clicked(self):
-         self.label.setText("Button was clicked!")
-        
-    def update(self):
-        self.label.adjustSize()
-
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -106,7 +60,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.stackedWidget.setCurrentWidget(self.ui.page)
 
         #Tervetuloa sivun nappi jossa painat lainaa for now
-        self.ui.lainausnappi.clicked.connect(self.lainaa(self.ui.stackedWidget.setCurrentWidget(self.ui.page_2)))
+        self.ui.lainausnappi.clicked.connect(self.lainaa)
 
         #painaa vahvista
         self.ui.vahvistanappilainauksessa.clicked.connect(self.lainauksentallennus)
@@ -221,36 +175,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setInitialElements()
 
 
-
-
-
-#Yritän laittaa historian taulukkoon juttuja
-
-#class Mainwindow(QDialog):
-   
-    #def __init__(self):
-        #super(MainWindow, self).__init__()
-        #load_ui("lainauspalautus.ui",self)
-        #self.loaddata()
-
-    #def loaddata(self):
-        #RFID=[{"tavara":" ","päivä":" ","henkilö":" "}]
-        #row=0
-        #self.tableWidget.setRowCount(len(RFID))
-        #for person in RFID:
-            #self.tableWidget.setItem(row, 0, QtWidgets.QTableWidgetItem(person["tavara"]))
-            #self.tableWidget.setItem(row, 1, QtWidgets.QTableWidgetItem(str(person["päivä"])))
-            #self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(person["henkilö"]))
-            #row=row+1
-
-
-loader = QUiLoader()
-
-def mainwindow_setup(w):
-    w.setWindowTitle("MainWindow Title")
-
-app = QtWidgets.QApplication(sys.argv)
-app.setStyle('fusion')
-window = loader.load("lainauspalautus.ui", None)
-window.show()
-app.exec()
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    app.setStyle('fusion')
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
