@@ -175,7 +175,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setInitialElements()
 
 
+def test_db_connection():
+    try:
+        conn = get_db_connection()
+        conn.close()
+        print("Database connected successfully.")
+    except Exception as error:
+        print("Database connection failed:", error)
+        raise
+
+
 if __name__ == "__main__":
+    test_db_connection()
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('fusion')
     window = MainWindow()
