@@ -9,6 +9,8 @@ import psycopg
 from psycopg.rows import dict_row
 
 
+
+
 def load_settings():
     """Load database settings from settings.json"""
     with open("settings.json") as f:
@@ -26,6 +28,8 @@ def get_db_connection():
         password=db_config["password"],
         row_factory=dict_row
     )
+
+
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -52,6 +56,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.openWarning(title, text, detailedText)
 
         self.setInitialElements()
+
+
 
 
         #Ohjelmoidut signaalit
@@ -85,6 +91,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 
+
     @Slot()
     def setInitialElements(self):
 
@@ -108,6 +115,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.historialista.hide()
        
 
+    
+
         #Alku
         self.ui.tervetuloa.show()
         self.ui.lainausnappi.show()
@@ -118,6 +127,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         #dbSettings = self.currentSettings
         #plainTextPassword = self.plainTextPassword
+
+
 
 
     def update_lainausvalikoima(self, items):
@@ -133,9 +144,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.ui.palautusnappi.setEnabled(True)
 
 
+
+
     #lainauksen vienti
     @Slot()
     def lainaa(self):
+
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_2)
         self.ui.otsikkolainaus.show()
         self.ui.lainausvalikoimalista.show()
@@ -154,6 +168,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.lainauksenvalikoima.hide()
 
    
+
+   #palautuksen vienti
     @Slot()
     def palauta(self):
 
@@ -168,6 +184,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setInitialElements()
 
 
+
+
 def test_db_connection():
     try:
         conn = get_db_connection()
@@ -176,6 +194,8 @@ def test_db_connection():
     except Exception as error:
         print("Database connection failed:", error)
         raise
+
+
 
 
 if __name__ == "__main__":
