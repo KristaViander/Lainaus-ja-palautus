@@ -173,6 +173,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @Slot()
     def palauta(self):
 
+        self.ui.stackedWidget.setCurrentWidget(self.ui.page_3)
         self.ui.palautus.show()
         self.ui.vahvistanappipalautuksessa.show()
         self.ui.palaanappipalautuksessa.show()
@@ -180,6 +181,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     @Slot()
     def palautuminen(self):
+        self.ui.palaanappipalautuksessa.show()
+        self.ui.palautus.show()
+        self.ui.palautusnappi.show()
+
 
         self.setInitialElements()
 
