@@ -85,9 +85,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 
-       
-
-
     @Slot()
     def setInitialElements(self):
 
@@ -121,10 +118,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         #dbSettings = self.currentSettings
         #plainTextPassword = self.plainTextPassword
-
-        #Tarvitsen tietokannan tiedot
-
-
 
 
     def update_lainausvalikoima(self, items):
