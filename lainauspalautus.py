@@ -183,7 +183,7 @@ def get_lainaukset(item=None, borrower=None, date=None):
     with get_db_connection() as conn:
 
         with conn.cursor() as cur:
-            
+
             cur.execute(query, tuple(params))
             return cur.fetchall()
 
@@ -832,11 +832,11 @@ def test_db_connection():
 
         conn.close()
 
-        print("Database connected successfully.")
+        print("Tietokantaan yhdistetty onnistuneesti.")
 
     except Exception as error:
 
-        print("Database connection failed:", error)
+        print("Tietokantayhteys epäonnistui:", error)
 
         raise
 
