@@ -7,5 +7,5 @@
     "password": "admin123"
   },
   "henkilokunta_password": "henkilokunta123",
-  "user_role": "customer"
+  "user_role": "asiakas"
 }

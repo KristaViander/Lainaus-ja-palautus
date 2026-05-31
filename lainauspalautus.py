@@ -206,7 +206,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.load_lainaus_items()
 
-        self.user_role = 'customer'
+        self.user_role = 'asiakas'
 
         self.ui.lainauksenvalikoima.currentTextChanged.connect(self.update_selected_lainaus_item)
 
@@ -217,7 +217,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 jsonData = settingsFile.read()
                 self.currentSettings = json.loads(jsonData)
-                self.user_role = self.currentSettings.get('user_role', 'customer')
+                self.user_role = self.currentSettings.get('user_role', 'asiakas')
             
 
 
@@ -406,7 +406,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def ask_user_role(self):
 
-        """Prompt for henkilökunta login; default to customer if not authenticated."""
+        """Kehota henkilökunta kirjautumiseen; automaattisesti asiakkaan näkokulma jos ei pysty kirjautua."""
 
         password, ok = QInputDialog.getText(
             self,
@@ -433,14 +433,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif password:
 
             QMessageBox.warning(self, 'Väärä salasana', 'Salasana on väärä, jatketaan asiakkaana.')
-            self.user_role = 'customer'
+            self.user_role = 'asiakas'
             self.ui.historianappi.hide()
 
 
 
         else:
 
-            self.user_role = 'customer'
+            self.user_role = 'asiakas'
             self.ui.historianappi.hide()
 
 
@@ -520,6 +520,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         selected_item = self.ui.lainauksenvalikoima.currentText().strip()
 
+
         if not selected_item:
 
             self.openWarning(
@@ -597,40 +598,54 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @Slot()
     def palauta(self):
 
-        # Show the palautus page and present a combobox on that page
+        
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_3)
 
-        # Ensure reserved items available
+        
         reserved = sorted(self.get_reserved_items())
+
         if not reserved:
+
             QMessageBox.information(self, 'Ei varattuja', 'Ei tällä hetkellä varattuja tavaroita palautettavaksi.')
+
             return
 
-        # Create combobox on the page if it doesn't exist
+        
         if not hasattr(self.ui, 'palautusvalikoima'):
+
             self.ui.palautusvalikoima = QComboBox(self.ui.frame_7)
+
             self.ui.palautusvalikoima.setObjectName('palautusvalikoima')
-            # place it where the text edit is
+            
             self.ui.palautusvalikoima.setGeometry(self.ui.palautus.geometry())
 
-            # when selection changes, copy to the text edit for confirmation
+            
             def on_select(text):
+
                 try:
+
                     self.ui.palautus.setPlainText(text)
+
                 except Exception:
+
                     self.ui.palautus.setText(text)
 
             self.ui.palautusvalikoima.currentTextChanged.connect(on_select)
 
-        # populate combobox
+        
         self.ui.palautusvalikoima.clear()
+
         for it in reserved:
+
             self.ui.palautusvalikoima.addItem(it)
 
-        # show widgets
+        
         self.ui.palautusvalikoima.show()
+
         self.ui.palautus.show()
+
         self.ui.vahvistanappipalautuksessa.show()
+
         self.ui.palaanappipalautuksessa.show()
 
 
@@ -670,7 +685,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.user_role == 'henkilokunta':
 
                 self.load_history_filters()
-                
+
                 self.load_history()
 
             self.palautuminen()
@@ -678,7 +693,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except Exception as error:
 
             self.openWarning(
-                'Palautus epäonnistui',
+                'Palautus ei onnistunut',
                 'Palautus tietokantaan ei onnistunut.',
                 str(error)
             )
