@@ -159,22 +159,31 @@ def save_palautus_record(item, return_rfid=None, note=None):
 
 def get_lainaukset(item=None, borrower=None, date=None):
 
-    """Fetch loan history rows from the database."""
+    """Hae lainaus historian rivit tietokannasta."""
 
     query = "SELECT * FROM lainaukset WHERE 1=1"
     params = []
+
     if item:
+
         query += " AND item = %s"
         params.append(item)
+
     if borrower:
+
         query += " AND borrower = %s"
         params.append(borrower)
+
     if date:
+
         query += " AND DATE(loaned_at) = %s"
         params.append(date)
     query += " ORDER BY loaned_at DESC"
+
     with get_db_connection() as conn:
+
         with conn.cursor() as cur:
+            
             cur.execute(query, tuple(params))
             return cur.fetchall()
 
@@ -185,6 +194,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
     def __init__(self):
+
         super().__init__()
 
         self.threadPool = QThreadPool().globalInstance()
@@ -193,8 +203,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
         self.ui.setupUi(self)
+
         self.load_lainaus_items()
+
         self.user_role = 'customer'
+
         self.ui.lainauksenvalikoima.currentTextChanged.connect(self.update_selected_lainaus_item)
 
 
@@ -209,6 +222,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
         except Exception as error:
+
             title = 'Tietokannan luku ei onnistunut'
             text = 'Tietokannan avaaminen ja salasanan purku ei onnistunut'
             detailedText = str(error)
@@ -218,8 +232,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
 
             try:
+
                 create_lainaus_table()
+
             except Exception as error:
+
                 self.openWarning(
                     'Tietokantataulun luonti ei onnistunut',
                     'Lainausdatan tallennus ei toimi ennen kuin tietokantataulu on luotu.',
@@ -344,7 +361,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def load_lainaus_items(self):
 
-        """Load all loan items into the combobox."""
+        """Laita kaikki tavarat comboboxiin."""
 
         self.update_lainausvalikoima(self.get_all_items())
 
@@ -381,6 +398,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
     def is_item_reserved(self, item):
+
         return item in self.get_reserved_items()
 
 
@@ -398,20 +416,30 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         )
 
         if not ok:
+
             self.user_role = 'customer'
             return
 
+
+
         if password and password == get_henkilokunta_password():
+
             self.user_role = 'henkilokunta'
             QMessageBox.information(self, 'Tervetuloa', 'Kirjauduit henkilökunnan tilaan.')
             self.ui.historianappi.show()
 
+
+
         elif password:
+
             QMessageBox.warning(self, 'Väärä salasana', 'Salasana on väärä, jatketaan asiakkaana.')
             self.user_role = 'customer'
             self.ui.historianappi.hide()
 
+
+
         else:
+
             self.user_role = 'customer'
             self.ui.historianappi.hide()
 
@@ -496,16 +524,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             self.openWarning(
                 'Valitse tavara',
-                'Valitse ensin lainausvalikosta tavara ennen tallentamista.'
+                'Valitse ensin lainausvalikoimasta tavara ennen tallentamista.'
             )
 
             return
+        
         if self.is_item_reserved(selected_item):
 
             self.openWarning(
                 'Varattu',
-                'Valittu tavara on jo varattu. Valitse toinen tavara.'
+                'Valittu tavara on varattu. Valitse toinen tavara.'
             )
+
             return
 
         borrower, ok = QInputDialog.getText(
@@ -515,6 +545,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         )
 
         if not ok or not borrower.strip():
+
             return
 
         rfid, ok = QInputDialog.getText(
@@ -524,11 +555,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         )
 
         if not ok:
+
             return
 
         try:
+
             save_lainaus(selected_item, borrower.strip(), rfid.strip() or None)
+
             self.ui.lainausvalikoimalista.setItem(0, 1, QTableWidgetItem('Varattu'))
+
             QMessageBox.information(
                 self,
                 'Onnistui',
@@ -536,6 +571,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             )
 
             self.load_lainaus_items()
+
             if self.user_role == 'henkilokunta':
 
                 self.load_history_filters()
@@ -592,7 +628,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         try:
 
             save_palautus_record(return_item, None, None)
-            
+
             QMessageBox.information(
                 self,
                 'Palautus onnistui',
