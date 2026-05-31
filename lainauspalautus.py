@@ -2,7 +2,7 @@ import sys
 import json
 
 from PySide6 import QtWidgets
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem, QLineEdit
 from PySide6.QtCore import QThreadPool, Slot
 from lainauspalautus_ui import Ui_MainWindow
 import psycopg
@@ -30,6 +30,15 @@ def get_db_connection():
     )
 
 
+
+
+def get_henkilokunta_password():
+    """Return the configured henkilökunta password for history access."""
+    try:
+        settings = load_settings()
+        return settings.get("henkilokunta_password", "henkilokunta123")
+    except Exception:
+        return "henkilokunta123"
 
 
 def create_lainaus_table():
@@ -135,16 +144,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.ui.setupUi(self)
         self.load_lainaus_items()
+        self.user_role = 'customer'
+        self.ui.lainauksenvalikoima.currentTextChanged.connect(self.update_selected_lainaus_item)
 
         try:
             with open("settings.json") as settingsFile:
 
                 jsonData = settingsFile.read()
                 self.currentSettings = json.loads(jsonData)
+                self.user_role = self.currentSettings.get('user_role', 'customer')
             
         except Exception as error:
-            title = 'Tietokanta-asetusten luku ei onnistunut'
-            text = 'Tietokanta-asetuksien avaaminen ja salasanan purku ei onnistunut'
+            title = 'Tietokannan luku ei onnistunut'
+            text = 'Tietokannan avaaminen ja salasanan purku ei onnistunut'
             detailedText = str(error)
             self.openWarning(title, text, detailedText)
         else:
@@ -157,6 +169,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     str(error)
                 )
 
+        self.ask_user_role()
         self.setInitialElements()
 
 
@@ -176,21 +189,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         #sama juttu kuin palautuksessa rfidn kanssa
 
         #Kun painaa palauta
-        self.ui.palautusnappi.clicked.connect(lambda: self.ui.stackedWidget.setCurrentWidget(self.ui.page_3))
+        self.ui.palautusnappi.clicked.connect(self.palauta)
 
         #Painaa vahvista
         self.ui.vahvistanappipalautuksessa.clicked.connect(self.palautuksen_tallennus)
 
-        #Muokkaa vielä että se lukee ne RFID:t ja hakee niillä tavaratiedot ja laittaa ne sinne historiaan
 
         #Kun painaa historia
-        self.ui.historianappi.clicked.connect(self.show_history_page)
+        self.ui.historianappi.clicked.connect(self.try_show_history)
         self.ui.haenappi.clicked.connect(self.load_history)
 
         #Kun painaa palaa nappia mennään alkutilaan
         self.ui.palaanappihistoriassa.clicked.connect(self.palautuminen)
         self.ui.palaanappilainauksessa.clicked.connect(self.palautuminen)
         self.ui.palaanappipalautuksessa.clicked.connect(self.palautuminen)
+        self.ui.haunperuutusnappi.clicked.connect(self.palautuminen)
 
 
 
@@ -210,6 +223,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.palautus.hide()
         self.ui.palaanappihistoriassa.hide()
         self.ui.historia.hide()
+        self.ui.historianappi.hide()
         self.ui.haenappi.hide()
         self.ui.tavarahistoriassa.hide()
         self.ui.henkilohistoriassa.hide()
@@ -224,25 +238,61 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.tervetuloa.show()
         self.ui.lainausnappi.show()
         self.ui.palautusnappi.show()
+        if self.user_role == 'henkilokunta':
+            self.ui.historianappi.show()
 
         self.ui.vahvistanappilainauksessa.setEnabled(True)
         self.ui.vahvistanappipalautuksessa.setEnabled(True)
-
-        #dbSettings = self.currentSettings
-        #plainTextPassword = self.plainTextPassword
 
 
 
 
     def load_lainaus_items(self):
-        """Load available loan items into the combobox."""
-        sample_items = [
-            "Kirja 1",
-            "Työkalu",
-            "Kannettava tietokone",
-            "Kaapeli",
+        """Load all loan items into the combobox."""
+        self.update_lainausvalikoima(self.get_all_items())
+
+    def get_all_items(self):
+        return [
+            "Ruuvimeisseli",
+            "Vasara",
+            "Sähköpora",
+            "Pihdit",
+            "Mittanauha",
         ]
-        self.update_lainausvalikoima(sample_items)
+
+    def get_reserved_items(self):
+        rows = get_lainaukset()
+        return {
+            row['item'] for row in rows
+            if row.get('item') and row.get('returned_at') is None
+        }
+
+    def is_item_reserved(self, item):
+        return item in self.get_reserved_items()
+
+    def ask_user_role(self):
+        """Prompt for henkilökunta login; default to customer if not authenticated."""
+        password, ok = QInputDialog.getText(
+            self,
+            'Henkilökunnan kirjautuminen',
+            'Anna henkilökunnan salasana tai jätä tyhjäksi asiakkaana jatkamista varten:',
+            QLineEdit.Password
+        )
+        if not ok:
+            self.user_role = 'customer'
+            return
+
+        if password and password == get_henkilokunta_password():
+            self.user_role = 'henkilokunta'
+            QMessageBox.information(self, 'Tervetuloa', 'Kirjauduit henkilökunnan tilaan.')
+            self.ui.historianappi.show()
+        elif password:
+            QMessageBox.warning(self, 'Väärä salasana', 'Salasana on väärä, jatketaan asiakkaana.')
+            self.user_role = 'customer'
+            self.ui.historianappi.hide()
+        else:
+            self.user_role = 'customer'
+            self.ui.historianappi.hide()
 
 
     def update_lainausvalikoima(self, items):
@@ -250,14 +300,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.lainauksenvalikoima.addItems(items)
         self.ui.lainauksenvalikoima.show()
         self.ui.lainausnappi.setEnabled(len(items) > 0)
+        self.update_selected_lainaus_item(self.ui.lainauksenvalikoima.currentText())
 
 
-
+    def update_selected_lainaus_item(self, selected_item):
+        """Show the currently selected loan item in the loan item table."""
+        self.ui.lainausvalikoimalista.setRowCount(1)
+        self.ui.lainausvalikoimalista.setItem(0, 0, QTableWidgetItem(selected_item or ''))
+        if selected_item and self.is_item_reserved(selected_item):
+            self.ui.lainausvalikoimalista.setItem(0, 1, QTableWidgetItem('Varattu'))
+            self.ui.vahvistanappilainauksessa.setEnabled(False)
+        else:
+            self.ui.lainausvalikoimalista.setItem(0, 1, QTableWidgetItem('Saatavilla' if selected_item else ''))
+            self.ui.vahvistanappilainauksessa.setEnabled(bool(selected_item))
 
     #lainauksen vienti
     @Slot()
     def lainaa(self):
-
+        self.load_lainaus_items()
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_2)
         self.ui.otsikkolainaus.show()
         self.ui.lainausvalikoimalista.show()
@@ -275,11 +335,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.palaanappilainauksessa.show()
         self.ui.lainauksenvalikoima.hide()
 
-        selected_item = self.ui.lainausvalikoima.currentText().strip()
+        selected_item = self.ui.lainauksenvalikoima.currentText().strip()
         if not selected_item:
             self.openWarning(
                 'Valitse tavara',
                 'Valitse ensin lainausvalikosta tavara ennen tallentamista.'
+            )
+            return
+        if self.is_item_reserved(selected_item):
+            self.openWarning(
+                'Varattu',
+                'Valittu tavara on jo varattu. Valitse toinen tavara.'
             )
             return
 
@@ -301,11 +367,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         try:
             save_lainaus(selected_item, borrower.strip(), rfid.strip() or None)
+            self.ui.lainausvalikoimalista.setItem(0, 1, QTableWidgetItem('Varattu'))
             QMessageBox.information(
                 self,
-                'Tallennettu',
-                f'Lainaus tietokantaan tallennettu: {selected_item} ({borrower.strip()})'
+                'Onnistui',
+                f'Lainaus onnistui: {selected_item} ({borrower.strip()})'
             )
+            self.load_lainaus_items()
+            if self.user_role == 'henkilokunta':
+                self.load_history_filters()
+                self.load_history()
+            self.ui.stackedWidget.setCurrentWidget(self.ui.page)
+            self.setInitialElements()
         except Exception as error:
             self.openWarning(
                 'Tallennus epäonnistui',
@@ -337,23 +410,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 return
             return_item = return_item.strip()
 
-        return_rfid, ok = QInputDialog.getText(
-            self,
-            'Palautus RFID',
-            'Anna palautuksen RFID (tai jätä tyhjäksi):'
-        )
-        if not ok:
-            return
-
         try:
-            save_palautus_record(return_item, return_rfid.strip() or None, None)
+            save_palautus_record(return_item, None, None)
             QMessageBox.information(
                 self,
-                'Palautettu',
-                f'Palautus tallennettu: {return_item}'
+                'Palautus onnistui',
+                f'Palautettu tavara: {return_item}'
             )
             self.ui.palautus.clear()
-            self.setInitialElements()
+            self.palautuminen()
         except Exception as error:
             self.openWarning(
                 'Palautus epäonnistui',
@@ -363,8 +428,41 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
     @Slot()
+    def try_show_history(self):
+        password, ok = QInputDialog.getText(
+            self,
+            'Henkilökunnan pääsy',
+            'Anna henkilökunnan salasana:',
+            QLineEdit.Password
+        )
+        if not ok:
+            return
+
+        if password == get_henkilokunta_password():
+            self.show_history_page()
+        else:
+            self.openWarning(
+                'Pääsy estetty',
+                'Väärä salasana. Historia on vain henkilökunnalle.'
+            )
+
     def show_history_page(self):
+        if self.user_role != 'henkilokunta':
+            self.openWarning(
+                'Pääsy estetty',
+                'Historia on vain henkilökunnalle.'
+            )
+            return
+
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_4)
+        self.ui.historia.show()
+        self.ui.haenappi.show()
+        self.ui.tavarahistoriassa.show()
+        self.ui.henkilohistoriassa.show()
+        self.ui.paivahistoriassa.show()
+        self.ui.haunperuutusnappi.show()
+        self.ui.historialista.show()
+        self.ui.palaanappihistoriassa.show()
         self.load_history_filters()
         self.load_history()
 
@@ -391,7 +489,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.populate_history_table(rows)
 
     def populate_history_table(self, rows):
-        headers = ['Tavara', 'Lainaaja', 'RFID', 'Lainattu', 'Palautettu', 'Palautuksen RFID']
+        headers = ['Tavara', 'Lainaaja', 'RFID', 'Lainattu', 'Palautettu', 'Palautuksen RFID', 'Tila']
         self.ui.historialista.setColumnCount(len(headers))
         self.ui.historialista.setHorizontalHeaderLabels(headers)
         self.ui.historialista.setRowCount(len(rows))
@@ -403,7 +501,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 row.get('rfid') or '',
                 str(row.get('loaned_at') or ''),
                 str(row.get('returned_at') or ''),
-                row.get('return_rfid') or ''
+                row.get('return_rfid') or '',
+                'Varattu' if row.get('returned_at') is None else 'Palautettu'
             ]
             for col_index, value in enumerate(values):
                 self.ui.historialista.setItem(
@@ -415,11 +514,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     @Slot()
     def palautuminen(self):
-        self.ui.palaanappipalautuksessa.show()
-        self.ui.palautus.show()
-        self.ui.palautusnappi.show()
-
-
+        self.ui.stackedWidget.setCurrentWidget(self.ui.page)
         self.setInitialElements()
 
     def openWarning(self, title, text, detailedText=None):
