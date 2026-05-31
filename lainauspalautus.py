@@ -3,7 +3,7 @@ import json
 import psycopg
 
 from PySide6 import QtWidgets
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem, QLineEdit
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem, QLineEdit, QComboBox
 from PySide6.QtCore import QThreadPool, Slot
 from lainauspalautus_ui import Ui_MainWindow
 from psycopg.rows import dict_row
@@ -597,12 +597,40 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @Slot()
     def palauta(self):
 
+        # Show the palautus page and present a combobox on that page
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_3)
 
+        # Ensure reserved items available
+        reserved = sorted(self.get_reserved_items())
+        if not reserved:
+            QMessageBox.information(self, 'Ei varattuja', 'Ei tällä hetkellä varattuja tavaroita palautettavaksi.')
+            return
+
+        # Create combobox on the page if it doesn't exist
+        if not hasattr(self.ui, 'palautusvalikoima'):
+            self.ui.palautusvalikoima = QComboBox(self.ui.frame_7)
+            self.ui.palautusvalikoima.setObjectName('palautusvalikoima')
+            # place it where the text edit is
+            self.ui.palautusvalikoima.setGeometry(self.ui.palautus.geometry())
+
+            # when selection changes, copy to the text edit for confirmation
+            def on_select(text):
+                try:
+                    self.ui.palautus.setPlainText(text)
+                except Exception:
+                    self.ui.palautus.setText(text)
+
+            self.ui.palautusvalikoima.currentTextChanged.connect(on_select)
+
+        # populate combobox
+        self.ui.palautusvalikoima.clear()
+        for it in reserved:
+            self.ui.palautusvalikoima.addItem(it)
+
+        # show widgets
+        self.ui.palautusvalikoima.show()
         self.ui.palautus.show()
-
         self.ui.vahvistanappipalautuksessa.show()
-
         self.ui.palaanappipalautuksessa.show()
 
 
@@ -636,6 +664,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             )
 
             self.ui.palautus.clear()
+
+            self.load_lainaus_items()
+
+            if self.user_role == 'henkilokunta':
+
+                self.load_history_filters()
+                
+                self.load_history()
 
             self.palautuminen()
 
