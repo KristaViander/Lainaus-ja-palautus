@@ -1,11 +1,11 @@
 import sys
 import json
+import psycopg
 
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem, QLineEdit
 from PySide6.QtCore import QThreadPool, Slot
 from lainauspalautus_ui import Ui_MainWindow
-import psycopg
 from psycopg.rows import dict_row
 
 
@@ -16,6 +16,7 @@ def load_settings():
     """Load database settings from settings.json"""
 
     with open("settings.json") as f:
+
         return json.load(f)
 
 
@@ -26,7 +27,9 @@ def get_db_connection():
     """Get PostgreSQL connection"""
 
     settings = load_settings()
+
     db_config = settings["database"]
+
     return psycopg.connect(
         host=db_config["host"],
         port=db_config["port"],
@@ -44,9 +47,13 @@ def get_henkilokunta_password():
     """Return the configured henkilökunta password for history access."""
 
     try:
+
         settings = load_settings()
+
         return settings.get("henkilokunta_password", "henkilokunta123")
+    
     except Exception:
+
         return "henkilokunta123"
 
 
@@ -58,7 +65,9 @@ def create_lainaus_table():
     """Create loan and return tables if they do not exist."""
 
     with get_db_connection() as conn:
+
         with conn.cursor() as cur:
+
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS lainaukset (
@@ -72,6 +81,7 @@ def create_lainaus_table():
                 )
                 """
             )
+
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS palautukset (
@@ -83,6 +93,7 @@ def create_lainaus_table():
                 )
                 """
             )
+
         conn.commit()
 
 
@@ -93,11 +104,14 @@ def save_lainaus(item, borrower=None, rfid=None):
     """Save a loan record to the database."""
 
     with get_db_connection() as conn:
+
         with conn.cursor() as cur:
+
             cur.execute(
                 "INSERT INTO lainaukset (item, borrower, rfid) VALUES (%s, %s, %s)",
                 (item, borrower, rfid)
             )
+
         conn.commit()
 
 
@@ -108,7 +122,9 @@ def save_palautus_record(item, return_rfid=None, note=None):
     """Save a return record to the database and update the matching loan."""
 
     with get_db_connection() as conn:
+
         with conn.cursor() as cur:
+
             cur.execute(
                 """
                 WITH updated AS (
@@ -118,6 +134,7 @@ def save_palautus_record(item, return_rfid=None, note=None):
                     ORDER BY loaned_at DESC
                     LIMIT 1
                 )
+
                 UPDATE lainaukset
                 SET returned_at = now(), return_rfid = %s
                 WHERE id IN (SELECT id FROM updated)
@@ -125,13 +142,16 @@ def save_palautus_record(item, return_rfid=None, note=None):
                 """,
                 (item, return_rfid)
             )
+
             updated_row = cur.fetchone()
+
             if updated_row is None:
-                # If no active loan exists, store a return record anyway.
+
                 cur.execute(
                     "INSERT INTO palautukset (item, return_rfid, note) VALUES (%s, %s, %s)",
                     (item, return_rfid, note)
                 )
+
         conn.commit()
 
 
@@ -795,5 +815,5 @@ if __name__ == "__main__":
     window = MainWindow()
 
     window.show()
-    
+
     sys.exit(app.exec())
