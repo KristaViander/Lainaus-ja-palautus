@@ -636,6 +636,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         )
 
         if not ok:
+            
             return
 
         if password == get_henkilokunta_password():
@@ -658,6 +659,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 'Pääsy estetty',
                 'Historia on vain henkilökunnalle.'
             )
+
             return
 
 
