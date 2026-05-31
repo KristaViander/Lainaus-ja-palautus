@@ -425,7 +425,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if password and password == get_henkilokunta_password():
 
             self.user_role = 'henkilokunta'
-            QMessageBox.information(self, 'Tervetuloa', 'Kirjauduit henkilökunnan tilaan.')
+            QMessageBox.information(self, 'Tervetuloa', 'Kirjauduit henkilökuntaan.')
             self.ui.historianappi.show()
 
 
@@ -463,7 +463,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def update_selected_lainaus_item(self, selected_item):
 
-        """Show the currently selected loan item in the loan item table."""
+        """Näyt laina tavarat."""
 
         self.ui.lainausvalikoimalista.setRowCount(1)
 
