@@ -2,7 +2,7 @@ import sys
 import json
 
 from PySide6 import QtWidgets
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QInputDialog, QTableWidgetItem
 from PySide6.QtCore import QThreadPool, Slot
 from lainauspalautus_ui import Ui_MainWindow
 import psycopg
@@ -32,6 +32,98 @@ def get_db_connection():
 
 
 
+def create_lainaus_table():
+    """Create loan and return tables if they do not exist."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS lainaukset (
+                    id SERIAL PRIMARY KEY,
+                    item TEXT NOT NULL,
+                    borrower TEXT,
+                    rfid TEXT,
+                    loaned_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+                    returned_at TIMESTAMP WITHOUT TIME ZONE,
+                    return_rfid TEXT
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS palautukset (
+                    id SERIAL PRIMARY KEY,
+                    item TEXT NOT NULL,
+                    return_rfid TEXT,
+                    note TEXT,
+                    returned_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now()
+                )
+                """
+            )
+        conn.commit()
+
+
+def save_lainaus(item, borrower=None, rfid=None):
+    """Save a loan record to the database."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO lainaukset (item, borrower, rfid) VALUES (%s, %s, %s)",
+                (item, borrower, rfid)
+            )
+        conn.commit()
+
+
+def save_palautus_record(item, return_rfid=None, note=None):
+    """Save a return record to the database and update the matching loan."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH updated AS (
+                    SELECT id
+                    FROM lainaukset
+                    WHERE item = %s AND returned_at IS NULL
+                    ORDER BY loaned_at DESC
+                    LIMIT 1
+                )
+                UPDATE lainaukset
+                SET returned_at = now(), return_rfid = %s
+                WHERE id IN (SELECT id FROM updated)
+                RETURNING id
+                """,
+                (item, return_rfid)
+            )
+            updated_row = cur.fetchone()
+            if updated_row is None:
+                # If no active loan exists, store a return record anyway.
+                cur.execute(
+                    "INSERT INTO palautukset (item, return_rfid, note) VALUES (%s, %s, %s)",
+                    (item, return_rfid, note)
+                )
+        conn.commit()
+
+
+def get_lainaukset(item=None, borrower=None, date=None):
+    """Fetch loan history rows from the database."""
+    query = "SELECT * FROM lainaukset WHERE 1=1"
+    params = []
+    if item:
+        query += " AND item = %s"
+        params.append(item)
+    if borrower:
+        query += " AND borrower = %s"
+        params.append(borrower)
+    if date:
+        query += " AND DATE(loaned_at) = %s"
+        params.append(date)
+    query += " ORDER BY loaned_at DESC"
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, tuple(params))
+            return cur.fetchall()
+
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def __init__(self):
@@ -42,6 +134,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui = Ui_MainWindow()
 
         self.ui.setupUi(self)
+        self.load_lainaus_items()
 
         try:
             with open("settings.json") as settingsFile:
@@ -54,6 +147,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             text = 'Tietokanta-asetuksien avaaminen ja salasanan purku ei onnistunut'
             detailedText = str(error)
             self.openWarning(title, text, detailedText)
+        else:
+            try:
+                create_lainaus_table()
+            except Exception as error:
+                self.openWarning(
+                    'Tietokantataulun luonti ei onnistunut',
+                    'Lainausdatan tallennus ei toimi ennen kuin tietokantataulu on luotu.',
+                    str(error)
+                )
 
         self.setInitialElements()
 
@@ -77,12 +179,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.palautusnappi.clicked.connect(lambda: self.ui.stackedWidget.setCurrentWidget(self.ui.page_3))
 
         #Painaa vahvista
-        self.ui.vahvistanappipalautuksessa.clicked.connect(self.palauta)
+        self.ui.vahvistanappipalautuksessa.clicked.connect(self.palautuksen_tallennus)
 
         #Muokkaa vielä että se lukee ne RFID:t ja hakee niillä tavaratiedot ja laittaa ne sinne historiaan
 
         #Kun painaa historia
-        self.ui.historianappi.clicked.connect(lambda: self.ui.stackedWidget.setCurrentWidget(self.ui.page_4))
+        self.ui.historianappi.clicked.connect(self.show_history_page)
+        self.ui.haenappi.clicked.connect(self.load_history)
 
         #Kun painaa palaa nappia mennään alkutilaan
         self.ui.palaanappihistoriassa.clicked.connect(self.palautuminen)
@@ -131,17 +234,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 
+    def load_lainaus_items(self):
+        """Load available loan items into the combobox."""
+        sample_items = [
+            "Kirja 1",
+            "Työkalu",
+            "Kannettava tietokone",
+            "Kaapeli",
+        ]
+        self.update_lainausvalikoima(sample_items)
+
+
     def update_lainausvalikoima(self, items):
-        self.ui.lainausvalikoimalista.clear()
-        self.ui.lainausvalikoimalista.addItems(items)
-        self.ui.lainausvalikoimalista.show()
+        self.ui.lainauksenvalikoima.clear()
+        self.ui.lainauksenvalikoima.addItems(items)
+        self.ui.lainauksenvalikoima.show()
         self.ui.lainausnappi.setEnabled(len(items) > 0)
-
-
-        if self.ui.inUsePlainTextEdit.toPlainText() == '':
-            self.ui.palautusnappi.setEnabled(False)
-        else:
-            self.ui.palautusnappi.setEnabled(True)
 
 
 
@@ -167,6 +275,44 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.palaanappilainauksessa.show()
         self.ui.lainauksenvalikoima.hide()
 
+        selected_item = self.ui.lainausvalikoima.currentText().strip()
+        if not selected_item:
+            self.openWarning(
+                'Valitse tavara',
+                'Valitse ensin lainausvalikosta tavara ennen tallentamista.'
+            )
+            return
+
+        borrower, ok = QInputDialog.getText(
+            self,
+            'Lainaaja',
+            'Anna lainaajan nimi:'
+        )
+        if not ok or not borrower.strip():
+            return
+
+        rfid, ok = QInputDialog.getText(
+            self,
+            'RFID',
+            'Anna RFID-koodi (tai jätä tyhjäksi):'
+        )
+        if not ok:
+            return
+
+        try:
+            save_lainaus(selected_item, borrower.strip(), rfid.strip() or None)
+            QMessageBox.information(
+                self,
+                'Tallennettu',
+                f'Lainaus tietokantaan tallennettu: {selected_item} ({borrower.strip()})'
+            )
+        except Exception as error:
+            self.openWarning(
+                'Tallennus epäonnistui',
+                'Lainaus tietokantaan ei onnistunut.',
+                str(error)
+            )
+
    
 
    #palautuksen vienti
@@ -178,6 +324,94 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.ui.vahvistanappipalautuksessa.show()
         self.ui.palaanappipalautuksessa.show()
 
+    @Slot()
+    def palautuksen_tallennus(self):
+        return_item = self.ui.palautus.toPlainText().strip()
+        if not return_item:
+            return_item, ok = QInputDialog.getText(
+                self,
+                'Palautettava tavara',
+                'Anna palautettava tavara:'
+            )
+            if not ok or not return_item.strip():
+                return
+            return_item = return_item.strip()
+
+        return_rfid, ok = QInputDialog.getText(
+            self,
+            'Palautus RFID',
+            'Anna palautuksen RFID (tai jätä tyhjäksi):'
+        )
+        if not ok:
+            return
+
+        try:
+            save_palautus_record(return_item, return_rfid.strip() or None, None)
+            QMessageBox.information(
+                self,
+                'Palautettu',
+                f'Palautus tallennettu: {return_item}'
+            )
+            self.ui.palautus.clear()
+            self.setInitialElements()
+        except Exception as error:
+            self.openWarning(
+                'Palautus epäonnistui',
+                'Palautus tietokantaan ei onnistunut.',
+                str(error)
+            )
+
+
+    @Slot()
+    def show_history_page(self):
+        self.ui.stackedWidget.setCurrentWidget(self.ui.page_4)
+        self.load_history_filters()
+        self.load_history()
+
+    def load_history_filters(self):
+        rows = get_lainaukset()
+        items = sorted({row['item'] for row in rows if row.get('item')})
+        borrowers = sorted({row['borrower'] for row in rows if row.get('borrower')})
+
+        self.ui.tavarahistoriassa.clear()
+        self.ui.tavarahistoriassa.addItem("")
+        self.ui.tavarahistoriassa.addItems(items)
+        self.ui.henkilohistoriassa.clear()
+        self.ui.henkilohistoriassa.addItem("")
+        self.ui.henkilohistoriassa.addItems(borrowers)
+
+    def load_history(self):
+        item_filter = self.ui.tavarahistoriassa.currentText().strip()
+        borrower_filter = self.ui.henkilohistoriassa.currentText().strip()
+
+        rows = get_lainaukset(
+            item=item_filter or None,
+            borrower=borrower_filter or None
+        )
+        self.populate_history_table(rows)
+
+    def populate_history_table(self, rows):
+        headers = ['Tavara', 'Lainaaja', 'RFID', 'Lainattu', 'Palautettu', 'Palautuksen RFID']
+        self.ui.historialista.setColumnCount(len(headers))
+        self.ui.historialista.setHorizontalHeaderLabels(headers)
+        self.ui.historialista.setRowCount(len(rows))
+
+        for row_index, row in enumerate(rows):
+            values = [
+                row.get('item') or '',
+                row.get('borrower') or '',
+                row.get('rfid') or '',
+                str(row.get('loaned_at') or ''),
+                str(row.get('returned_at') or ''),
+                row.get('return_rfid') or ''
+            ]
+            for col_index, value in enumerate(values):
+                self.ui.historialista.setItem(
+                    row_index,
+                    col_index,
+                    QTableWidgetItem(value)
+                )
+
 
     @Slot()
     def palautuminen(self):
@@ -188,7 +422,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.setInitialElements()
 
-
+    def openWarning(self, title, text, detailedText=None):
+        message = QMessageBox(self)
+        message.setWindowTitle(title)
+        message.setText(text)
+        if detailedText:
+            message.setDetailedText(detailedText)
+        message.setIcon(QMessageBox.Warning)
+        message.exec()
 
 
 def test_db_connection():
