@@ -592,6 +592,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         try:
 
             save_palautus_record(return_item, None, None)
+            
             QMessageBox.information(
                 self,
                 'Palautus onnistui',
@@ -636,7 +637,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         )
 
         if not ok:
-            
+
             return
 
         if password == get_henkilokunta_password():
